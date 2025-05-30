@@ -21,38 +21,70 @@ jobs:
         run: |
           SHORT_SHA=$(echo $COMMIT_SHA | cut -c1-7)
           COMMIT_URL="https://github.com/${REPO_NAME}/commit/${COMMIT_SHA}"
+          FECHA=$(date +"%B %d, %Y")
 
           PAYLOAD=$(jq -n \
-            --arg msg "🚀 Push detectado en *develop* para *${REPO_NAME}*" \
-            --arg detalle "👤 Usuario: ${PUSHER_NAME} (${PUSHER_EMAIL})\n📝 Commit: ${COMMIT_MSG}\n🔗 Ver: ${COMMIT_URL}" \
-            --arg icon_url "https://res.cloudinary.com/dhqhfame3/image/upload/v1736173935/favicon.png" \
-            --arg footer "*NotifyTrxSIIApp* | *${SIIENV:-dev}* | 🔒S(${SEGURIDADENV:-default}) | ha enviado este mensaje." \
-            --arg channel "$SLACK_CHANNEL" '
+            --arg channel "$SLACK_CHANNEL" \
+            --arg fecha "$FECHA" \
+            --arg short_sha "$SHORT_SHA" \
+            --arg repo "$REPO_NAME" \
+            --arg msg "$COMMIT_MSG" \
+            --arg pusher "$PUSHER_NAME" \
+            --arg email "$PUSHER_EMAIL" \
+            --arg commit_url "$COMMIT_URL" \
+            --arg tarea_url "https://github.com/${REPO_NAME}/pull/123" \
+            --arg icon_url "https://storage.googleapis.com/storage-payku-prd/public/img/payku-logos-v2/android-icon-48x48_payku_2021.png" '
             {
               channel: $channel,
-              text: $msg,
               blocks: [
+                {
+                  type: "header",
+                  text: {
+                    type: "plain_text",
+                    text: "🚀 Push en develop (ambiente de integración) 🚀"
+                  }
+                },
+                {
+                  type: "context",
+                  elements: [
+                    {
+                      type: "mrkdwn",
+                      text: "*\($fecha)*  |  `#\($short_sha)`"
+                    }
+                  ]
+                },
                 {
                   type: "section",
                   text: {
                     type: "mrkdwn",
-                    text: $msg
+                    text: "Push detectado en *develop* para el repositorio *\($repo)*.\n*Commit*: \($msg).\n*Usuario*: \($pusher) (\($email))."
                   }
                 },
                 {
-                  type: "rich_text",
+                  type: "actions",
                   elements: [
                     {
-                      type: "rich_text_preformatted",
-                      border: 0,
-                      elements: [
-                        {
-                          type: "text",
-                          text: $detalle
-                        }
-                      ]
+                      type: "button",
+                      text: {
+                        type: "plain_text",
+                        text: "Ver cambios",
+                        emoji: true
+                      },
+                      url: $commit_url
+                    },
+                    {
+                      type: "button",
+                      text: {
+                        type: "plain_text",
+                        text: "Ver tarea",
+                        emoji: true
+                      },
+                      url: $tarea_url
                     }
                   ]
+                },
+                {
+                  type: "divider"
                 },
                 {
                   type: "context",
@@ -64,12 +96,9 @@ jobs:
                     },
                     {
                       type: "mrkdwn",
-                      text: $footer
+                      text: "*NotifyTrxSIIApp* | 🔀 *Develop* | a enviado este mensaje."
                     }
                   ]
-                },
-                {
-                  type: "divider"
                 }
               ]
             }')
