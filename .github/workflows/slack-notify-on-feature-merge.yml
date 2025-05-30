@@ -12,11 +12,14 @@ jobs:
       - name: Notificar a Slack
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          APP_NAME: ${{ secrets.APP_NAME }}
+          REPO_NAME: ${{ github.repository }}
           PUSHER_NAME: ${{ github.event.pusher.name }}
           PUSHER_EMAIL: ${{ github.event.pusher.email }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
+          SHORT_SHA: ${{ github.sha }}
         run: |
+          SHORT_SHA=$(echo $SHORT_SHA | cut -c1-7)  # Obtener los primeros 7 caracteres del SHA
+          COMMIT_URL="https://github.com/${REPO_NAME}/commit/${SHORT_SHA}"  # Crear el enlace al commit
           curl --fail -X POST -H 'Content-type: application/json' --data "{
-            \"text\": \"🚀 *Push detectado en develop* para *${APP_NAME}*.\n👤 Usuario: *${PUSHER_NAME}* (${PUSHER_EMAIL})\n📝 Commit: ${COMMIT_MSG}\"
+            \"text\": \"🚀 *Push detectado en develop* para el repositorio *${REPO_NAME}*.\n👤 Usuario: *${PUSHER_NAME}* (${PUSHER_EMAIL})\n📝 Commit: ${COMMIT_MSG}\n🔑 Commit SHA: ${SHORT_SHA}\n🔗 Ver cambios: ${COMMIT_URL}\"
           }" $SLACK_WEBHOOK_URL
