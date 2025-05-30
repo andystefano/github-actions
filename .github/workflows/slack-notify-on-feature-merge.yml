@@ -13,7 +13,10 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           APP_NAME: ${{ secrets.APP_NAME }}
+          PUSHER_NAME: ${{ github.event.pusher.name }}
+          PUSHER_EMAIL: ${{ github.event.pusher.email }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           curl --fail -X POST -H 'Content-type: application/json' --data "{
-            \"text\": \"🚀 Se hizo *push* a la rama *develop* en la app *${APP_NAME}*.\" 
+            \"text\": \"🚀 *Push detectado en develop* para *${APP_NAME}*.\n👤 Usuario: *${PUSHER_NAME}* (${PUSHER_EMAIL})\n📝 Commit: ${COMMIT_MSG}\"
           }" $SLACK_WEBHOOK_URL
