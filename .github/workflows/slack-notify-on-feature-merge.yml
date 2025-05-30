@@ -12,7 +12,7 @@ jobs:
       - name: Notificar a Slack
         env:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
-          SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+          SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL_ID }}
           REPO_NAME: ${{ github.repository }}
           PUSHER_NAME: ${{ github.event.pusher.name }}
           PUSHER_EMAIL: ${{ github.event.pusher.email }}
