@@ -7,41 +7,14 @@ on:
 
 jobs:
   notify-slack:
-    if: github.event.head_commit.message != ''
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Check if merge from feature/*
-        run: |
-          echo "GITHUB_REF: $GITHUB_REF"
-          echo "GITHUB_EVENT_BEFORE: ${{ github.event.before }}"
-          echo "GITHUB_EVENT_AFTER: ${{ github.event.after }}"
-
-          git clone --no-checkout https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} repo
-          cd repo
-          git fetch origin ${{ github.event.before }}
-          git fetch origin ${{ github.event.after }}
-
-          base_branch=$(git name-rev --name-only ${{ github.event.before }})
-          head_branch=$(git name-rev --name-only ${{ github.event.after }})
-
-          echo "Base branch: $base_branch"
-          echo "Head branch: $head_branch"
-
-          if [[ "$head_branch" == "develop" && "$base_branch" == feature/* ]]; then
-            echo "IS_FEATURE_MERGE=true" >> $GITHUB_ENV
-          else
-            echo "IS_FEATURE_MERGE=false" >> $GITHUB_ENV
-          fi
-
-      - name: Send message to Slack
-        if: env.IS_FEATURE_MERGE == 'true'
+     steps:
+      - name: Notificar a Slack
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
           APP_NAME: ${{ secrets.APP_NAME }}
         run: |
-          curl -X POST -H 'Content-type: application/json' --data "{
-            \"channel\": \"${SLACK_CHANNEL_ID}\",
-            \"text\": \"✅ Se hizo merge de una rama *feature* a *develop* en la app *${APP_NAME}*.\"
+          curl --fail -X POST -H 'Content-type: application/json' --data "{
+            \"text\": \"🚀 Se hizo *push* a la rama *develop* en la app *${APP_NAME}*.\"
           }" $SLACK_WEBHOOK_URL
