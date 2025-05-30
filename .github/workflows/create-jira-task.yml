@@ -1,56 +1,61 @@
 name: Create Jira Issue on New Branch
 
 on:
+  create:
+    branches: '**'  # Se activa al crear cualquier rama
   push:
-    branches:
-      - '**'
+    branches-ignore:
+      - 'main'      # Ignora ramas principales
+      - 'master'
+      - 'develop'
 
 jobs:
-  create-jira-issue:
+  create-jira-task:
     runs-on: ubuntu-latest
-    if: github.event.before == '0000000000000000000000000000000000000000'
-
     steps:
-      - name: Check out the code
-        uses: actions/checkout@v3
+      - name: Check if branch is new
+        id: check-branch
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const branchName = context.ref.replace('refs/heads/', '');
+            const response = await github.rest.repos.listBranches({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            const branchExists = response.data.some(branch => branch.name === branchName);
+            return branchExists ? 'existing' : 'new';
 
-      - name: Get branch name
-        run: echo "BRANCH_NAME=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
-
-      - name: Get first commit message
-        id: get_commit
+      - name: Create Jira Issue (only for new branches)
+        if: steps.check-branch.outputs.result == 'new'
+        env:
+          JIRA_EMAIL: ${{ vars.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
+          JIRA_PROJECT_KEY: ${{ vars.JIRA_PROJECT_KEY }}
+          BRANCH_NAME: ${{ github.ref_name }}
         run: |
-          FIRST_COMMIT_MSG=$(git log --reverse --pretty=format:%s | head -n 1)
-          echo "commit_msg=$FIRST_COMMIT_MSG" >> $GITHUB_OUTPUT
-
-      - name: Create Jira issue
-        id: create_issue
-        run: |
-          SUMMARY="${{ steps.get_commit.outputs.commit_msg }}"
-          DESCRIPTION="Tarea creada automáticamente desde la rama '$BRANCH_NAME'"
-
-          RESPONSE=$(curl -s -X POST \
-            -u "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            --url "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue" \
-            -d @- <<EOF
-{
-  "fields": {
-    "project": {
-      "key": "${{ secrets.JIRA_PROJECT_KEY }}"
-    },
-    "summary": "$SUMMARY",
-    "description": "$DESCRIPTION",
-    "customfield_10037": "$BRANCH_NAME",
-    "issuetype": {
-      "name": "Task"
-    }
-  }
-}
-EOF
+          echo "Creando tarea en Jira para la rama: $BRANCH_NAME"
+          
+          # Configuración del payload para Jira
+          JSON_PAYLOAD=$(cat <<EOF
+          {
+            "fields": {
+              "project": { "key": "$JIRA_PROJECT_KEY" },
+              "summary": "Desarrollo para rama: $BRANCH_NAME",
+              "description": "Rama creada en GitHub:\\n\\n- **Repositorio**: ${{ github.repository }}\\n- **Autor**: ${{ github.actor }}\\n- **Enlace**: https://github.com/${{ github.repository }}/tree/$BRANCH_NAME",
+              "issuetype": { "name": "Task" },
+              "labels": ["github-automation"]
+            }
+          }
+          EOF
           )
 
-          echo "response=$RESPONSE" >> $GITHUB_OUTPUT
-          ISSUE_KEY=$(echo "$RESPONSE" | jq -r '.key')
-          echo "Created Jira issue: $ISSUE_KEY"
-          echo "ISSUE_KEY=$ISSUE_KEY" >> $GITHUB_ENV
+          # Llamada a la API de Jira
+          curl -X POST \
+            -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$JSON_PAYLOAD" \
+            "$JIRA_BASE_URL/rest/api/2/issue/" \
+            && echo "Tarea creada exitosamente en Jira!" \
+            || echo "Error al crear la tarea en Jira"
