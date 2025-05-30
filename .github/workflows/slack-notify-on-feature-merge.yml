@@ -11,15 +11,70 @@ jobs:
     steps:
       - name: Notificar a Slack
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+          SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
           REPO_NAME: ${{ github.repository }}
           PUSHER_NAME: ${{ github.event.pusher.name }}
           PUSHER_EMAIL: ${{ github.event.pusher.email }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
-          SHORT_SHA: ${{ github.sha }}
+          COMMIT_SHA: ${{ github.sha }}
         run: |
-          SHORT_SHA=$(echo $SHORT_SHA | cut -c1-7)  # Obtener los primeros 7 caracteres del SHA
-          COMMIT_URL="https://github.com/${REPO_NAME}/commit/${SHORT_SHA}"  # Crear el enlace al commit
-          curl --fail -X POST -H 'Content-type: application/json' --data "{
-            \"text\": \"🚀 *Push detectado en develop* para el repositorio *${REPO_NAME}*.\n👤 Usuario: *${PUSHER_NAME}* (${PUSHER_EMAIL})\n📝 Commit: ${COMMIT_MSG}\n🔑 Commit SHA: ${SHORT_SHA}\n🔗 Ver cambios: ${COMMIT_URL}\"
-          }" $SLACK_WEBHOOK_URL
+          SHORT_SHA=$(echo $COMMIT_SHA | cut -c1-7)
+          COMMIT_URL="https://github.com/${REPO_NAME}/commit/${COMMIT_SHA}"
+
+          PAYLOAD=$(jq -n \
+            --arg msg "🚀 Push detectado en *develop* para *${REPO_NAME}*" \
+            --arg detalle "👤 Usuario: ${PUSHER_NAME} (${PUSHER_EMAIL})\n📝 Commit: ${COMMIT_MSG}\n🔗 Ver: ${COMMIT_URL}" \
+            --arg icon_url "https://res.cloudinary.com/dhqhfame3/image/upload/v1736173935/favicon.png" \
+            --arg footer "*NotifyTrxSIIApp* | *${SIIENV:-dev}* | 🔒S(${SEGURIDADENV:-default}) | ha enviado este mensaje." \
+            --arg channel "$SLACK_CHANNEL" '
+            {
+              channel: $channel,
+              text: $msg,
+              blocks: [
+                {
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: $msg
+                  }
+                },
+                {
+                  type: "rich_text",
+                  elements: [
+                    {
+                      type: "rich_text_preformatted",
+                      border: 0,
+                      elements: [
+                        {
+                          type: "text",
+                          text: $detalle
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: "context",
+                  elements: [
+                    {
+                      type: "image",
+                      image_url: $icon_url,
+                      alt_text: "Payku"
+                    },
+                    {
+                      type: "mrkdwn",
+                      text: $footer
+                    }
+                  ]
+                },
+                {
+                  type: "divider"
+                }
+              ]
+            }')
+
+          curl -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_TOKEN" \
+            -H "Content-type: application/json" \
+            --data "$PAYLOAD"
