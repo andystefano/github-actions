@@ -1,4 +1,4 @@
-name: Notificar a Slack cuando se cierra feature a develop
+name: Notificar a Slack cuando se hace push a develop
 
 on:
   push:
@@ -8,12 +8,12 @@ on:
 jobs:
   notify-slack:
     runs-on: ubuntu-latest
-     steps:
+    steps:
       - name: Notificar a Slack
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           APP_NAME: ${{ secrets.APP_NAME }}
         run: |
           curl --fail -X POST -H 'Content-type: application/json' --data "{
-            \"text\": \"🚀 Se hizo *push* a la rama *develop* en la app *${APP_NAME}*.\"
+            \"text\": \"🚀 Se hizo *push* a la rama *develop* en la app *${APP_NAME}*.\" 
           }" $SLACK_WEBHOOK_URL
