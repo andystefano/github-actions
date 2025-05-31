@@ -80,7 +80,7 @@ jobs:
                   type: "section",
                   text: {
                     type: "mrkdwn",
-                    text: "Push detectado en *develop* para el repositorio *\($repo)* \($source_info).\n*Commit*: \($msg).\n*Usuario*: \($pusher) (\($email))."
+                    text: "Push detectado en *develop* para el repositorio *\($repo)* \($SOURCE_BRANCH).\n*Commit*: \($msg).\n*Usuario*: \($pusher) (\($email))."
                   }
                 },
                 {
