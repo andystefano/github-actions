@@ -1,0 +1,230 @@
+name: 'Crear Tarea Jira - Ejecución Manual'
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_title:
+        description: 'Título de la tarea'
+        required: true
+        default: 'Tarea de prueba'
+        type: string
+      task_description:
+        description: 'Descripción de la tarea'
+        required: false
+        default: 'Esta es una tarea creada desde GitHub Actions para pruebas'
+        type: string
+      task_type:
+        description: 'Tipo de tarea'
+        required: true
+        default: 'Task'
+        type: choice
+        options:
+          - Task
+          - Bug
+          - Story
+          - Epic
+      priority:
+        description: 'Prioridad'
+        required: true
+        default: 'Medium'
+        type: choice
+        options:
+          - Highest
+          - High
+          - Medium
+          - Low
+          - Lowest
+
+jobs:
+  create-jira-task:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+      
+      - name: Verificar variables de entorno
+        run: |
+          echo "🔍 Verificando configuración..."
+          
+          # Verificar que las variables existan (sin mostrar valores)
+          if [ -z "${{ secrets.JIRA_BASE_URL }}" ]; then
+            echo "❌ Error: JIRA_BASE_URL no está configurado"
+            exit 1
+          fi
+          
+          if [ -z "${{ secrets.JIRA_EMAIL }}" ]; then
+            echo "❌ Error: JIRA_EMAIL no está configurado"
+            exit 1
+          fi
+          
+          if [ -z "${{ secrets.JIRA_API_TOKEN }}" ]; then
+            echo "❌ Error: JIRA_API_TOKEN no está configurado"
+            exit 1
+          fi
+          
+          if [ -z "${{ secrets.JIRA_PROJECT_KEY }}" ]; then
+            echo "❌ Error: JIRA_PROJECT_KEY no está configurado"
+            exit 1
+          fi
+          
+          echo "✅ Todas las variables están configuradas"
+          echo "🌐 Base URL configurada: $(echo '${{ secrets.JIRA_BASE_URL }}' | sed 's/./*/g')"
+          echo "📧 Email configurado: $(echo '${{ secrets.JIRA_EMAIL }}' | cut -c1-3)***"
+          echo "🔑 Token configurado: ✓"
+          echo "📁 Proyecto: ${{ secrets.JIRA_PROJECT_KEY }}"
+
+      - name: Crear tarea en Jira
+        run: |
+          echo "🚀 Creando tarea en Jira..."
+          echo "Título: ${{ github.event.inputs.task_title }}"
+          echo "Tipo: ${{ github.event.inputs.task_type }}"
+          echo "Prioridad: ${{ github.event.inputs.priority }}"
+          
+          # Crear el JSON para la API de Jira
+          cat > jira_payload.json << 'EOF'
+          {
+            "fields": {
+              "project": {
+                "key": "PROJECT_KEY_PLACEHOLDER"
+              },
+              "summary": "TITLE_PLACEHOLDER",
+              "description": "DESCRIPTION_PLACEHOLDER",
+              "issuetype": {
+                "name": "TYPE_PLACEHOLDER"
+              },
+              "priority": {
+                "name": "PRIORITY_PLACEHOLDER"
+              }
+            }
+          }
+          EOF
+          
+          # Reemplazar placeholders de forma segura
+          sed -i "s/PROJECT_KEY_PLACEHOLDER/${{ secrets.JIRA_PROJECT_KEY }}/g" jira_payload.json
+          sed -i "s/TITLE_PLACEHOLDER/${{ github.event.inputs.task_title }}/g" jira_payload.json
+          sed -i "s/DESCRIPTION_PLACEHOLDER/${{ github.event.inputs.task_description }}/g" jira_payload.json
+          sed -i "s/TYPE_PLACEHOLDER/${{ github.event.inputs.task_type }}/g" jira_payload.json
+          sed -i "s/PRIORITY_PLACEHOLDER/${{ github.event.inputs.priority }}/g" jira_payload.json
+          
+          echo "📄 Payload JSON creado:"
+          cat jira_payload.json
+          
+          # Realizar la llamada a la API de Jira
+          echo "🌐 Enviando petición a Jira..."
+          
+          # Primero probar la conectividad
+          echo "🔍 Probando conectividad con Jira..."
+          curl_test=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.JIRA_BASE_URL }}")
+          echo "📊 Código de conectividad: $curl_test"
+          
+          if [ "$curl_test" -ne 200 ] && [ "$curl_test" -ne 401 ] && [ "$curl_test" -ne 403 ]; then
+            echo "❌ No se puede conectar a Jira. Verifica JIRA_BASE_URL"
+            echo "🌐 URL intentada: ${{ secrets.JIRA_BASE_URL }}"
+            exit 1
+          fi
+          
+          # Realizar la llamada principal
+          echo "🚀 Enviando datos a Jira..."
+          
+          response_file=$(mktemp)
+          http_code=$(curl -s -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Basic $(echo -n '${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}' | base64)" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
+            -d @jira_payload.json \
+            -o "$response_file" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue")
+          
+          response_body=$(cat "$response_file")
+          
+          echo "📊 Código HTTP: $http_code"
+          echo "📄 Respuesta del servidor:"
+          echo "$response_body"
+          
+          if [ "$http_code" -eq 201 ]; then
+            echo "✅ Tarea creada exitosamente!"
+            
+            # Extraer la clave del issue de manera más robusta
+            if command -v jq >/dev/null 2>&1; then
+              issue_key=$(echo "$response_body" | jq -r '.key' 2>/dev/null)
+            else
+              issue_key=$(echo "$response_body" | grep -o '"key":"[^"]*"' | cut -d'"' -f4)
+            fi
+            
+            if [ -z "$issue_key" ] || [ "$issue_key" = "null" ]; then
+              echo "⚠️ No se pudo extraer la clave del issue, pero la tarea se creó"
+              issue_key="UNKNOWN"
+            fi
+            
+            issue_url="${{ secrets.JIRA_BASE_URL }}/browse/$issue_key"
+            
+            echo "🔗 Clave de la tarea: $issue_key"
+            echo "🌐 URL: $issue_url"
+            
+            # Agregar al summary del job
+            echo "## ✅ Tarea Jira Creada" >> $GITHUB_STEP_SUMMARY
+            echo "- **Clave:** $issue_key" >> $GITHUB_STEP_SUMMARY
+            echo "- **Título:** ${{ github.event.inputs.task_title }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Tipo:** ${{ github.event.inputs.task_type }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Prioridad:** ${{ github.event.inputs.priority }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **URL:** [$issue_key]($issue_url)" >> $GITHUB_STEP_SUMMARY
+            
+          elif [ "$http_code" -eq 400 ]; then
+            echo "❌ Error 400: Datos inválidos enviados a Jira"
+            echo "🔍 Posibles causas:"
+            echo "  - Tipo de issue '${{ github.event.inputs.task_type }}' no existe en el proyecto"
+            echo "  - Prioridad '${{ github.event.inputs.priority }}' no es válida"
+            echo "  - Proyecto '${{ secrets.JIRA_PROJECT_KEY }}' no existe o sin permisos"
+            echo "  - Campos obligatorios faltantes en el proyecto"
+            
+          elif [ "$http_code" -eq 401 ]; then
+            echo "❌ Error 401: Credenciales inválidas"
+            echo "🔍 Verifica:"
+            echo "  - JIRA_EMAIL es correcto"
+            echo "  - JIRA_API_TOKEN es válido y no expirado"
+            
+          elif [ "$http_code" -eq 403 ]; then
+            echo "❌ Error 403: Sin permisos"
+            echo "🔍 El usuario no tiene permisos para crear issues en este proyecto"
+            
+          elif [ "$http_code" -eq 404 ]; then
+            echo "❌ Error 404: Recurso no encontrado"
+            echo "🔍 Verifica:"
+            echo "  - JIRA_BASE_URL es correcto"
+            echo "  - El proyecto '${{ secrets.JIRA_PROJECT_KEY }}' existe"
+            
+          else
+            echo "❌ Error HTTP $http_code"
+            echo "📄 Respuesta completa del servidor:"
+            echo "$response_body"
+          fi
+          
+          # Agregar error al summary si no fue exitoso
+          if [ "$http_code" -ne 201 ]; then
+            echo "## ❌ Error al crear tarea Jira" >> $GITHUB_STEP_SUMMARY
+            echo "- **Código HTTP:** $http_code" >> $GITHUB_STEP_SUMMARY
+            echo "- **Respuesta:** \`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "$response_body" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            
+            # Limpiar archivos temporales
+            rm -f "$response_file" jira_payload.json
+            exit 1
+          fi
+          
+          # Limpiar archivos temporales
+          rm -f "$response_file"
+          
+          # Limpiar archivo temporal
+          rm jira_payload.json
+
+      - name: Notificar resultado
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "🎉 Proceso completado exitosamente"
+          else
+            echo "💥 Hubo un error en el proceso"
+          fi

@@ -1,0 +1,99 @@
+name: Notificar a Slack cuando se hace push a develop
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  notify-slack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notificar a Slack
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+          SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL_ID }}
+          REPO_NAME: ${{ github.repository }}
+          PUSHER_NAME: ${{ github.event.pusher.name }}
+          PUSHER_EMAIL: ${{ github.event.pusher.email }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          SHORT_SHA=$(echo $COMMIT_SHA | cut -c1-7)
+          COMMIT_URL="https://github.com/${REPO_NAME}/commit/${COMMIT_SHA}"
+          FECHA=$(date +"%B %d, %Y")
+
+          PAYLOAD=$(jq -n \
+            --arg channel "$SLACK_CHANNEL" \
+            --arg fecha "$FECHA" \
+            --arg short_sha "$SHORT_SHA" \
+            --arg repo "$REPO_NAME" \
+            --arg msg "$COMMIT_MSG" \
+            --arg pusher "$PUSHER_NAME" \
+            --arg email "$PUSHER_EMAIL" \
+            --arg commit_url "$COMMIT_URL" \
+            --arg icon_url "https://storage.googleapis.com/storage-payku-prd/public/img/payku-logos-v2/android-icon-48x48_payku_2021.png" '
+            {
+              channel: $channel,
+              blocks: [
+                {
+                  type: "header",
+                  text: {
+                    type: "plain_text",
+                    text: "🚀 Push en develop (ambiente de integración) 🚀"
+                  }
+                },
+                {
+                  type: "context",
+                  elements: [
+                    {
+                      type: "mrkdwn",
+                      text: "*\($fecha)*  |  `#\($short_sha)`"
+                    }
+                  ]
+                },
+                {
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: "Push detectado en *develop* para el repositorio *\($repo)*.\n*Commit*: \($msg).\n*Usuario*: \($pusher) (\($email))."
+                  }
+                },
+                {
+                  type: "actions",
+                  elements: [
+                    {
+                      type: "button",
+                      text: {
+                        type: "plain_text",
+                        text: "Ver cambios",
+                        emoji: true
+                      },
+                      url: $commit_url
+                    }
+                  ]
+                },
+                {
+                  type: "divider"
+                },
+                {
+                  type: "context",
+                  elements: [
+                    {
+                      type: "image",
+                      image_url: $icon_url,
+                      alt_text: "Payku"
+                    },
+                    {
+                      type: "mrkdwn",
+                      text: "*NotifyTrxSIIApp* | 🔀 *Develop* | a enviado este mensaje."
+                    }
+                  ]
+                }
+              ]
+            }')
+
+          curl -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_TOKEN" \
+            -H "Content-type: application/json; charset=utf-8" \
+            --data "$PAYLOAD"
