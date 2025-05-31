@@ -23,21 +23,30 @@ jobs:
           COMMIT_URL="https://github.com/${REPO_NAME}/commit/${COMMIT_SHA}"
           FECHA=$(date +"%B %d, %Y")
           
-          # Obtener la rama de origen (para merges)
+          # Obtener la rama de origen
           if [[ "$COMMIT_MSG" == *"Merge pull request"* ]]; then
-            # Si es un merge de PR, extraemos la rama del mensaje de commit
+            # Merge desde PR
             SOURCE_BRANCH=$(echo "$COMMIT_MSG" | grep -oP 'from \K[^\n]+' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             SOURCE_INFO="(merge desde *$SOURCE_BRANCH* vía PR)"
           elif [[ "$COMMIT_MSG" == *"Merge branch"* ]]; then
-            # Si es un merge local
+            # Merge estándar
             SOURCE_BRANCH=$(echo "$COMMIT_MSG" | grep -oP "Merge branch '[^']*'" | sed "s/Merge branch '//;s/'//")
-            # Acortar nombres de rama muy largos
-            SHORT_BRANCH=$(echo "$SOURCE_BRANCH" | awk '{ if (length($0) > 30) print substr($0, 1, 30)"..."; else print; }')
-            SOURCE_INFO="(merge local desde *$SHORT_BRANCH*)"
+            SOURCE_INFO="(merge desde *$SOURCE_BRANCH*)"
+          elif [[ "$COMMIT_MSG" == *"Merge remote-tracking branch"* ]]; then
+            # Merge desde remote
+            SOURCE_BRANCH=$(echo "$COMMIT_MSG" | grep -oP "Merge remote-tracking branch '[^']*'" | sed "s/Merge remote-tracking branch '//;s/'//")
+            SOURCE_INFO="(merge desde *$SOURCE_BRANCH*)"
+          elif [[ "$COMMIT_MSG" == *"finish"* ]] || [[ "$COMMIT_MSG" == *"Finished PR"* ]]; then
+            # Git flow feature finish
+            SOURCE_BRANCH=$(echo "$COMMIT_MSG" | grep -oP "feature/\S*" || echo "feature/desconocida")
+            SOURCE_INFO="(git flow finish desde *$SOURCE_BRANCH*)"
           else
-            # Si es un push directo
+            # Push directo
             SOURCE_INFO="(push directo)"
           fi
+
+          # Acortar nombres de rama largos
+          SHORT_BRANCH=$(echo "$SOURCE_BRANCH" | awk '{ if (length($0) > 25) print substr($0, 1, 25)"..."; else print; }')
 
           PAYLOAD=$(jq -n \
             --arg channel "$SLACK_CHANNEL" \
@@ -49,6 +58,7 @@ jobs:
             --arg email "$PUSHER_EMAIL" \
             --arg commit_url "$COMMIT_URL" \
             --arg source_info "$SOURCE_INFO" \
+            --arg short_branch "$SHORT_BRANCH" \
             --arg tarea_url "https://github.com/${REPO_NAME}/pull/123" \
             --arg icon_url "https://storage.googleapis.com/storage-payku-prd/public/img/payku-logos-v2/android-icon-48x48_payku_2021.png" '
             {
