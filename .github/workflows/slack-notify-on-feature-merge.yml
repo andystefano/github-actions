@@ -119,7 +119,7 @@ jobs:
                     },
                     {
                       type: "mrkdwn",
-                      text: "*NotifyTrxSIIApp* | 🔀 *Develop* | a enviado este mensaje."
+                      text: "*NotifyTrxSIIApp* | 🔀 *Develop* | a enviado este mensaje.."
                     }
                   ]
                 }
