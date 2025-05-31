@@ -22,6 +22,16 @@ jobs:
           SHORT_SHA=$(echo $COMMIT_SHA | cut -c1-7)
           COMMIT_URL="https://github.com/${REPO_NAME}/commit/${COMMIT_SHA}"
           FECHA=$(date +"%B %d, %Y")
+          
+          # Obtener la rama de origen (para merges)
+          if [[ "${{ github.event.head_commit.message }}" == *"Merge pull request"* ]]; then
+            # Si es un merge, extraemos la rama del mensaje de commit
+            SOURCE_BRANCH=$(echo "${{ github.event.head_commit.message }}" | grep -oP 'from \K[^\n]+' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            SOURCE_INFO="(merge desde *$SOURCE_BRANCH*)"
+          else
+            # Si es un push directo
+            SOURCE_INFO="(push directo)"
+          fi
 
           PAYLOAD=$(jq -n \
             --arg channel "$SLACK_CHANNEL" \
@@ -32,6 +42,7 @@ jobs:
             --arg pusher "$PUSHER_NAME" \
             --arg email "$PUSHER_EMAIL" \
             --arg commit_url "$COMMIT_URL" \
+            --arg source_info "$SOURCE_INFO" \
             --arg tarea_url "https://github.com/${REPO_NAME}/pull/123" \
             --arg icon_url "https://storage.googleapis.com/storage-payku-prd/public/img/payku-logos-v2/android-icon-48x48_payku_2021.png" '
             {
@@ -57,7 +68,7 @@ jobs:
                   type: "section",
                   text: {
                     type: "mrkdwn",
-                    text: "Push detectado en *develop* para el repositorio *\($repo)*.\n*Commit*: \($msg).\n*Usuario*: \($pusher) (\($email))."
+                    text: "Push detectado en *develop* para el repositorio *\($repo)* \($source_info).\n*Commit*: \($msg).\n*Usuario*: \($pusher) (\($email))."
                   }
                 },
                 {
