@@ -86,7 +86,7 @@ jobs:
                     },
                     {
                       type: "mrkdwn",
-                      text: "*NotifyTrxSIIApp* | 🔀 *Develop* | a enviado este mensaje."
+                      text: "*PaykuApp* | 🔀 *Develop* | a enviado este mensaje."
                     }
                   ]
                 }
