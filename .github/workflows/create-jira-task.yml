@@ -113,27 +113,51 @@ jobs:
           # Realizar la llamada a la API de Jira
           echo "🌐 Enviando petición a Jira..."
           
-          response=$(curl -s -w "\n%{http_code}" \
+          # Primero probar la conectividad
+          echo "🔍 Probando conectividad con Jira..."
+          curl_test=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.JIRA_BASE_URL }}")
+          echo "📊 Código de conectividad: $curl_test"
+          
+          if [ "$curl_test" -ne 200 ] && [ "$curl_test" -ne 401 ] && [ "$curl_test" -ne 403 ]; then
+            echo "❌ No se puede conectar a Jira. Verifica JIRA_BASE_URL"
+            echo "🌐 URL intentada: ${{ secrets.JIRA_BASE_URL }}"
+            exit 1
+          fi
+          
+          # Realizar la llamada principal
+          echo "🚀 Enviando datos a Jira..."
+          
+          response_file=$(mktemp)
+          http_code=$(curl -s -w "%{http_code}" \
             -X POST \
             -H "Authorization: Basic $(echo -n '${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}' | base64)" \
             -H "Content-Type: application/json" \
             -H "Accept: application/json" \
             -d @jira_payload.json \
+            -o "$response_file" \
             "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue")
           
-          # Separar respuesta y código HTTP
-          http_code=$(echo "$response" | tail -n1)
-          response_body=$(echo "$response" | head -n -1)
+          response_body=$(cat "$response_file")
           
           echo "📊 Código HTTP: $http_code"
+          echo "📄 Respuesta del servidor:"
+          echo "$response_body"
           
           if [ "$http_code" -eq 201 ]; then
             echo "✅ Tarea creada exitosamente!"
-            echo "📄 Respuesta completa:"
-            echo "$response_body" | jq '.' 2>/dev/null || echo "$response_body"
             
-            # Extraer la clave del issue
-            issue_key=$(echo "$response_body" | jq -r '.key' 2>/dev/null || echo "$response_body" | grep -o '"key":"[^"]*"' | cut -d'"' -f4)
+            # Extraer la clave del issue de manera más robusta
+            if command -v jq >/dev/null 2>&1; then
+              issue_key=$(echo "$response_body" | jq -r '.key' 2>/dev/null)
+            else
+              issue_key=$(echo "$response_body" | grep -o '"key":"[^"]*"' | cut -d'"' -f4)
+            fi
+            
+            if [ -z "$issue_key" ] || [ "$issue_key" = "null" ]; then
+              echo "⚠️ No se pudo extraer la clave del issue, pero la tarea se creó"
+              issue_key="UNKNOWN"
+            fi
+            
             issue_url="${{ secrets.JIRA_BASE_URL }}/browse/$issue_key"
             
             echo "🔗 Clave de la tarea: $issue_key"
@@ -146,20 +170,52 @@ jobs:
             echo "- **Tipo:** ${{ github.event.inputs.task_type }}" >> $GITHUB_STEP_SUMMARY
             echo "- **Prioridad:** ${{ github.event.inputs.priority }}" >> $GITHUB_STEP_SUMMARY
             echo "- **URL:** [$issue_key]($issue_url)" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Error al crear la tarea (HTTP $http_code)"
-            echo "📄 Respuesta del servidor:"
-            echo "$response_body" | jq '.' 2>/dev/null || echo "$response_body"
             
-            # Agregar error al summary
+          elif [ "$http_code" -eq 400 ]; then
+            echo "❌ Error 400: Datos inválidos enviados a Jira"
+            echo "🔍 Posibles causas:"
+            echo "  - Tipo de issue '${{ github.event.inputs.task_type }}' no existe en el proyecto"
+            echo "  - Prioridad '${{ github.event.inputs.priority }}' no es válida"
+            echo "  - Proyecto '${{ secrets.JIRA_PROJECT_KEY }}' no existe o sin permisos"
+            echo "  - Campos obligatorios faltantes en el proyecto"
+            
+          elif [ "$http_code" -eq 401 ]; then
+            echo "❌ Error 401: Credenciales inválidas"
+            echo "🔍 Verifica:"
+            echo "  - JIRA_EMAIL es correcto"
+            echo "  - JIRA_API_TOKEN es válido y no expirado"
+            
+          elif [ "$http_code" -eq 403 ]; then
+            echo "❌ Error 403: Sin permisos"
+            echo "🔍 El usuario no tiene permisos para crear issues en este proyecto"
+            
+          elif [ "$http_code" -eq 404 ]; then
+            echo "❌ Error 404: Recurso no encontrado"
+            echo "🔍 Verifica:"
+            echo "  - JIRA_BASE_URL es correcto"
+            echo "  - El proyecto '${{ secrets.JIRA_PROJECT_KEY }}' existe"
+            
+          else
+            echo "❌ Error HTTP $http_code"
+            echo "📄 Respuesta completa del servidor:"
+            echo "$response_body"
+          fi
+          
+          # Agregar error al summary si no fue exitoso
+          if [ "$http_code" -ne 201 ]; then
             echo "## ❌ Error al crear tarea Jira" >> $GITHUB_STEP_SUMMARY
             echo "- **Código HTTP:** $http_code" >> $GITHUB_STEP_SUMMARY
-            echo "- **Error:** \`\`\`json" >> $GITHUB_STEP_SUMMARY
+            echo "- **Respuesta:** \`\`\`" >> $GITHUB_STEP_SUMMARY
             echo "$response_body" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             
+            # Limpiar archivos temporales
+            rm -f "$response_file" jira_payload.json
             exit 1
           fi
+          
+          # Limpiar archivos temporales
+          rm -f "$response_file"
           
           # Limpiar archivo temporal
           rm jira_payload.json
