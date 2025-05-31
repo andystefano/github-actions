@@ -23,30 +23,26 @@ jobs:
           COMMIT_URL="https://github.com/${REPO_NAME}/commit/${COMMIT_SHA}"
           FECHA=$(date +"%B %d, %Y")
           
-          # Obtener la rama de origen
-          if [[ "$COMMIT_MSG" == *"Merge pull request"* ]]; then
+          # Obtener la rama de origen con mejor detección para git flow
+          if [[ "$COMMIT_MSG" =~ "Merge pull request" ]]; then
             # Merge desde PR
             SOURCE_BRANCH=$(echo "$COMMIT_MSG" | grep -oP 'from \K[^\n]+' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             SOURCE_INFO="(merge desde *$SOURCE_BRANCH* vía PR)"
-          elif [[ "$COMMIT_MSG" == *"Merge branch"* ]]; then
-            # Merge estándar
-            SOURCE_BRANCH=$(echo "$COMMIT_MSG" | grep -oP "Merge branch '[^']*'" | sed "s/Merge branch '//;s/'//")
-            SOURCE_INFO="(merge desde *$SOURCE_BRANCH*)"
-          elif [[ "$COMMIT_MSG" == *"Merge remote-tracking branch"* ]]; then
-            # Merge desde remote
-            SOURCE_BRANCH=$(echo "$COMMIT_MSG" | grep -oP "Merge remote-tracking branch '[^']*'" | sed "s/Merge remote-tracking branch '//;s/'//")
-            SOURCE_INFO="(merge desde *$SOURCE_BRANCH*)"
-          elif [[ "$COMMIT_MSG" == *"finish"* ]] || [[ "$COMMIT_MSG" == *"Finished PR"* ]]; then
+          elif [[ "$COMMIT_MSG" =~ "Merge branch 'feature/" ]]; then
             # Git flow feature finish
-            SOURCE_BRANCH=$(echo "$COMMIT_MSG" | grep -oP "feature/\S*" || echo "feature/desconocida")
-            SOURCE_INFO="(git flow finish desde *$SOURCE_BRANCH*)"
+            SOURCE_BRANCH=$(echo "$COMMIT_MSG" | grep -oP "Merge branch 'feature/\K[^']*")
+            SOURCE_INFO="(git flow finish desde *feature/$SOURCE_BRANCH*)"
+          elif [[ "$COMMIT_MSG" =~ "Merge branch '" ]]; then
+            # Merge estándar
+            SOURCE_BRANCH=$(echo "$COMMIT_MSG" | grep -oP "Merge branch '\K[^']*")
+            SOURCE_INFO="(merge desde *$SOURCE_BRANCH*)"
           else
             # Push directo
             SOURCE_INFO="(push directo)"
           fi
 
-          # Acortar nombres de rama largos
-          SHORT_BRANCH=$(echo "$SOURCE_BRANCH" | awk '{ if (length($0) > 25) print substr($0, 1, 25)"..."; else print; }')
+          # Acortar nombres de rama largos (45 caracteres máximo)
+          SHORT_BRANCH=$(echo "$SOURCE_BRANCH" | awk '{ if (length($0) > 45) print substr($0, 1, 42)"..."; else print; }')
 
           PAYLOAD=$(jq -n \
             --arg channel "$SLACK_CHANNEL" \
