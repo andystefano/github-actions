@@ -32,7 +32,6 @@ jobs:
             --arg pusher "$PUSHER_NAME" \
             --arg email "$PUSHER_EMAIL" \
             --arg commit_url "$COMMIT_URL" \
-            --arg tarea_url "https://github.com/${REPO_NAME}/pull/123" \
             --arg icon_url "https://storage.googleapis.com/storage-payku-prd/public/img/payku-logos-v2/android-icon-48x48_payku_2021.png" '
             {
               channel: $channel,
@@ -71,15 +70,6 @@ jobs:
                         emoji: true
                       },
                       url: $commit_url
-                    },
-                    {
-                      type: "button",
-                      text: {
-                        type: "plain_text",
-                        text: "Ver tarea",
-                        emoji: true
-                      },
-                      url: $tarea_url
                     }
                   ]
                 },
