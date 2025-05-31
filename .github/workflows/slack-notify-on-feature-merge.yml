@@ -22,8 +22,6 @@ jobs:
           SHORT_SHA=$(echo $COMMIT_SHA | cut -c1-7)
           COMMIT_URL="https://github.com/${REPO_NAME}/commit/${COMMIT_SHA}"
           FECHA=$(date +"%B %d, %Y")
-          
-
 
           PAYLOAD=$(jq -n \
             --arg channel "$SLACK_CHANNEL" \
@@ -34,7 +32,6 @@ jobs:
             --arg pusher "$PUSHER_NAME" \
             --arg email "$PUSHER_EMAIL" \
             --arg commit_url "$COMMIT_URL" \
-
             --arg tarea_url "https://github.com/${REPO_NAME}/pull/123" \
             --arg icon_url "https://storage.googleapis.com/storage-payku-prd/public/img/payku-logos-v2/android-icon-48x48_payku_2021.png" '
             {
@@ -99,7 +96,7 @@ jobs:
                     },
                     {
                       type: "mrkdwn",
-                      text: "*NotifyTrxSIIApp* | 🔀 *Develop* | a enviado este mensaje.."
+                      text: "*NotifyTrxSIIApp* | 🔀 *Develop* | a enviado este mensaje."
                     }
                   ]
                 }
