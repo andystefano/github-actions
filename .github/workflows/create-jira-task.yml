@@ -1,118 +1,86 @@
-name: 'Crear Tarea Jira - Ejecución Manual'
+name: Jira Task Creator
 
 on:
+  # Trigger manual desde la UI de GitHub
   workflow_dispatch:
     inputs:
-      task_title:
-        description: 'Título de la tarea'
+      branch_name:
+        description: 'Nombre completo de la rama (ej: feature/login)'
         required: true
-        default: 'Tarea de prueba'
         type: string
-      task_description:
-        description: 'Descripción de la tarea'
+      issue_title:
+        description: 'Título para la tarea en Jira'
+        required: true
+        type: string
+      issue_description:
+        description: 'Descripción detallada (opcional)'
         required: false
-        default: 'Esta es una tarea creada desde GitHub Actions para pruebas'
         type: string
-      task_type:
-        description: 'Tipo de tarea'
-        required: true
-        default: 'Task'
-        type: choice
-        options:
-          - Task
-          - Bug
-          - Story
-          - Epic
-      priority:
-        description: 'Prioridad'
-        required: true
-        default: 'Medium'
-        type: choice
-        options:
-          - Highest
-          - High
-          - Medium
-          - Low
-          - Lowest
+        default: 'Tarea creada automáticamente desde GitHub'
+
+  # Trigger automático al crear ramas feature/*
+  push:
+    branches:
+      - 'feature/*'
 
 jobs:
   create-jira-task:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-      
-      - name: Crear tarea en Jira
+      # Paso 1: Determinar el modo de ejecución (manual/automático)
+      - name: Set execution mode
+        id: set-mode
         run: |
-          echo "🚀 Creando tarea en Jira..."
-          echo "Título: ${{ github.event.inputs.task_title }}"
-          echo "Tipo: ${{ github.event.inputs.task_type }}"
-          echo "Prioridad: ${{ github.event.inputs.priority }}"
-          
-          # Crear el JSON para la API de Jira
-          cat > jira_payload.json << EOF
-          {
-            "fields": {
-              "project": {
-                "key": "${{ secrets.JIRA_PROJECT_KEY }}"
-              },
-              "summary": "${{ github.event.inputs.task_title }}",
-              "description": "${{ github.event.inputs.task_description }}",
-              "issuetype": {
-                "name": "${{ github.event.inputs.task_type }}"
-              },
-              "priority": {
-                "name": "${{ github.event.inputs.priority }}"
-              }
-            }
-          }
-          EOF
-          
-          # Realizar la llamada a la API de Jira
-          response=$(curl -s -w "\n%{http_code}" \
-            -X POST \
-            -H "Authorization: Basic $(echo -n '${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}' | base64)" \
-            -H "Content-Type: application/json" \
-            -H "Accept: application/json" \
-            -d @jira_payload.json \
-            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue")
-          
-          # Separar respuesta y código HTTP
-          http_code=$(echo "$response" | tail -n1)
-          response_body=$(echo "$response" | head -n -1)
-          
-          echo "Código HTTP: $http_code"
-          echo "Respuesta: $response_body"
-          
-          if [ "$http_code" -eq 201 ]; then
-            issue_key=$(echo "$response_body" | grep -o '"key":"[^"]*"' | cut -d'"' -f4)
-            issue_url="${{ secrets.JIRA_BASE_URL }}/browse/$issue_key"
-            echo "✅ Tarea creada exitosamente!"
-            echo "🔗 Clave de la tarea: $issue_key"
-            echo "🌐 URL: $issue_url"
-            
-            # Agregar al summary del job
-            echo "## ✅ Tarea Jira Creada" >> $GITHUB_STEP_SUMMARY
-            echo "- **Clave:** $issue_key" >> $GITHUB_STEP_SUMMARY
-            echo "- **Título:** ${{ github.event.inputs.task_title }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Tipo:** ${{ github.event.inputs.task_type }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Prioridad:** ${{ github.event.inputs.priority }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **URL:** [$issue_key]($issue_url)" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "MODO=MANUAL" >> $GITHUB_ENV
+            echo "BRANCH=${{ github.event.inputs.branch_name }}" >> $GITHUB_ENV
+            echo "TITLE=${{ github.event.inputs.issue_title }}" >> $GITHUB_ENV
+            echo "DESC=${{ github.event.inputs.issue_description }}" >> $GITHUB_ENV
           else
-            echo "❌ Error al crear la tarea"
-            echo "$response_body"
-            exit 1
+            echo "MODO=AUTO" >> $GITHUB_ENV
+            echo "BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
+            echo "TITLE=Desarrollo para rama: ${{ github.ref_name }}" >> $GITHUB_ENV
+            echo "DESC=Tarea creada automáticamente para la rama ${{ github.ref_name }}" >> $GITHUB_ENV
           fi
-          
-          # Limpiar archivo temporal
-          rm jira_payload.json
 
-      - name: Notificar resultado
-        if: always()
+      # Paso 2: Crear la tarea en Jira
+      - name: Create Jira issue
+        env:
+          JIRA_EMAIL: ${{ vars.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
+          JIRA_PROJECT_KEY: ${{ vars.JIRA_PROJECT_KEY }}
         run: |
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "🎉 Proceso completado exitosamente"
-          else
-            echo "💥 Hubo un error en el proceso"
-          fi
+          echo "Creando tarea en Jira..."
+          echo "Modo: $MODO"
+          echo "Proyecto: $JIRA_PROJECT_KEY"
+          
+          RESPONSE=$(curl -s -X POST \
+            -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "fields": {
+                "project": { "key": "'"$JIRA_PROJECT_KEY"'" },
+                "summary": "'"$TITLE"'",
+                "description": "'"$DESC"'",
+                "issuetype": { "name": "Task" },
+                "labels": ["github-automation"]
+              }
+            }' \
+            "$JIRA_BASE_URL/rest/api/2/issue/")
+
+          # Mostrar resultado
+          echo "$RESPONSE" | jq .
+          
+          # Extraer y mostrar clave de la tarea
+          ISSUE_KEY=$(echo "$RESPONSE" | jq -r '.key')
+          echo "Tarea creada: $ISSUE_KEY"
+          echo "issue_key=$ISSUE_KEY" >> $GITHUB_OUTPUT
+
+      # Paso 3 (Opcional): Notificación de resultado
+      - name: Show result
+        run: |
+          echo "✔️ Proceso completado"
+          echo "Modo de ejecución: $MODO"
+          echo "Tarea Jira creada: ${{ steps.create-jira-task.outputs.issue_key }}"
+          echo "URL: ${{ vars.JIRA_BASE_URL }}/browse/${{ steps.create-jira-task.outputs.issue_key }}"
