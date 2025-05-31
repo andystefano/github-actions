@@ -24,10 +24,16 @@ jobs:
           FECHA=$(date +"%B %d, %Y")
           
           # Obtener la rama de origen (para merges)
-          if [[ "${{ github.event.head_commit.message }}" == *"Merge pull request"* ]]; then
-            # Si es un merge, extraemos la rama del mensaje de commit
-            SOURCE_BRANCH=$(echo "${{ github.event.head_commit.message }}" | grep -oP 'from \K[^\n]+' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-            SOURCE_INFO="(merge desde *$SOURCE_BRANCH*)"
+          if [[ "$COMMIT_MSG" == *"Merge pull request"* ]]; then
+            # Si es un merge de PR, extraemos la rama del mensaje de commit
+            SOURCE_BRANCH=$(echo "$COMMIT_MSG" | grep -oP 'from \K[^\n]+' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            SOURCE_INFO="(merge desde *$SOURCE_BRANCH* vía PR)"
+          elif [[ "$COMMIT_MSG" == *"Merge branch"* ]]; then
+            # Si es un merge local
+            SOURCE_BRANCH=$(echo "$COMMIT_MSG" | grep -oP "Merge branch '[^']*'" | sed "s/Merge branch '//;s/'//")
+            # Acortar nombres de rama muy largos
+            SHORT_BRANCH=$(echo "$SOURCE_BRANCH" | awk '{ if (length($0) > 30) print substr($0, 1, 30)"..."; else print; }')
+            SOURCE_INFO="(merge local desde *$SHORT_BRANCH*)"
           else
             # Si es un push directo
             SOURCE_INFO="(push directo)"
