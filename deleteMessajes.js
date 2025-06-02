@@ -3,7 +3,7 @@ require('dotenv').config();
 const { WebClient } = require('@slack/web-api');
 
 const token = process.env.SLACK_BOT_TOKEN;
-const channelId = 'C08VC91C8RE'; // Reemplaza con tu channel ID real
+const channelId = 'C08VD3NFV1P'; // Reemplaza con tu channel ID real
 
 const slackClient = new WebClient(token);
 
