@@ -86,7 +86,11 @@ jobs:
                     },
                     {
                       type: "mrkdwn",
+<<<<<<< HEAD
                       text: "*PaykuApp* | 🔀 *master* | a enviado este mensaje."
+=======
+                      text: "*PaykuApp* | 🔀 *Develop* | a enviado este mensaje."
+>>>>>>> develop
                     }
                   ]
                 }
