@@ -9,6 +9,8 @@ const path = require('path');
 const fs = require('fs');
 const ldap = require('ldapjs');
 const xml2js = require('xml2js');
+const handlebars = require('handlebars');
+const vm = require('vm');
 
 // Import database models and routes
 const db = require('./models');
@@ -174,6 +176,211 @@ app.post('/xml-import', (req, res) => {
       error: 'XML processing error',
       details: error.message,
       stack: error.stack // VULNERABLE: Exposing stack trace
+    });
+  }
+});
+
+// VULNERABILITY 12: Prototype Pollution vulnerability
+app.post('/merge-config', (req, res) => {
+  const { config } = req.body;
+  
+  if (!config || typeof config !== 'object') {
+    return res.status(400).json({ error: 'Config object is required' });
+  }
+  
+  // VULNERABLE: Prototype pollution through recursive merge
+  function merge(target, source) {
+    for (const key in source) {
+      if (source.hasOwnProperty(key)) {
+        if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
+          if (!target[key]) target[key] = {};
+          merge(target[key], source[key]); // VULNERABLE: No protection against __proto__
+        } else {
+          target[key] = source[key]; // VULNERABLE: Direct assignment allows __proto__ pollution
+        }
+      }
+    }
+    return target;
+  }
+  
+  const appConfig = {};
+  merge(appConfig, config); // VULNERABLE: Merging user input without validation
+  
+  res.json({ 
+    message: 'Configuration merged successfully',
+    config: appConfig,
+    // VULNERABLE: Demonstrating that pollution worked
+    polluted: appConfig.__proto__
+  });
+});
+
+// VULNERABILITY 13: Regular Expression DoS (ReDoS)
+app.post('/validate-input', (req, res) => {
+  const { text, pattern } = req.body;
+  
+  if (!text || !pattern) {
+    return res.status(400).json({ error: 'Text and pattern are required' });
+  }
+  
+  try {
+    // VULNERABLE: User-controlled regex pattern can cause ReDoS
+    const regex = new RegExp(pattern);
+    const startTime = Date.now();
+    
+    // VULNERABLE: Complex regex on user input can cause catastrophic backtracking
+    const matches = text.match(regex);
+    const endTime = Date.now();
+    
+    res.json({
+      matches: matches,
+      executionTime: endTime - startTime,
+      pattern: pattern
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Regex validation failed', 
+      details: error.message,
+      stack: error.stack // VULNERABLE: Exposing stack trace
+    });
+  }
+});
+
+// VULNERABILITY 14: Open Redirect
+app.get('/redirect', (req, res) => {
+  const { url, returnTo } = req.query;
+  
+  // VULNERABLE: No validation of redirect URL
+  const redirectUrl = url || returnTo || 'https://example.com';
+  
+  // VULNERABLE: Direct redirect without whitelist validation
+  res.redirect(redirectUrl);
+});
+
+// VULNERABILITY 15: Insecure Deserialization
+app.post('/deserialize', (req, res) => {
+  const { serializedData } = req.body;
+  
+  if (!serializedData) {
+    return res.status(400).json({ error: 'Serialized data is required' });
+  }
+  
+  try {
+    // VULNERABLE: Using eval to deserialize data
+    const deserializedObject = eval('(' + serializedData + ')'); // VULNERABLE: eval() with user input
+    
+    res.json({
+      message: 'Data deserialized successfully',
+      data: deserializedObject,
+      type: typeof deserializedObject
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Deserialization failed', 
+      details: error.message,
+      input: serializedData // VULNERABLE: Echoing potentially malicious input
+    });
+  }
+});
+
+// VULNERABILITY 16: Server-Side Template Injection (SSTI)
+app.post('/generate-report', (req, res) => {
+  const { template, data } = req.body;
+  
+  if (!template || !data) {
+    return res.status(400).json({ error: 'Template and data are required' });
+  }
+  
+  try {
+    // VULNERABLE: Compiling user-controlled template without sandboxing
+    const compiledTemplate = handlebars.compile(template);
+    const result = compiledTemplate(data);
+    
+    res.json({
+      message: 'Report generated successfully',
+      report: result,
+      template: template // VULNERABLE: Echoing template back
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Template compilation failed', 
+      details: error.message,
+      template: template // VULNERABLE: Exposing template in error
+    });
+  }
+});
+
+// VULNERABILITY 17: Code Injection via vm module
+app.post('/execute-script', (req, res) => {
+  const { script, context } = req.body;
+  
+  if (!script) {
+    return res.status(400).json({ error: 'Script is required' });
+  }
+  
+  try {
+    // VULNERABLE: Executing user-provided code in vm context
+    const vmContext = vm.createContext(context || {});
+    const result = vm.runInContext(script, vmContext); // VULNERABLE: Code injection
+    
+    res.json({
+      message: 'Script executed successfully',
+      result: result,
+      script: script // VULNERABLE: Echoing script back
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Script execution failed', 
+      details: error.message,
+      script: script // VULNERABLE: Exposing script in error
+    });
+  }
+});
+
+// VULNERABILITY 18: Insecure Random Number Generation
+app.get('/generate-token', (req, res) => {
+  const { length } = req.query;
+  const tokenLength = parseInt(length) || 32;
+  
+  // VULNERABLE: Using Math.random() for security-sensitive operations
+  let token = '';
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  
+  for (let i = 0; i < tokenLength; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length)); // VULNERABLE: Weak randomness
+  }
+  
+  res.json({
+    token: token,
+    algorithm: 'Math.random()', // VULNERABLE: Exposing weak algorithm
+    length: tokenLength
+  });
+});
+
+// VULNERABILITY 19: Directory Traversal in File Upload
+app.post('/upload', (req, res) => {
+  const { filename, content } = req.body;
+  
+  if (!filename || !content) {
+    return res.status(400).json({ error: 'Filename and content are required' });
+  }
+  
+  // VULNERABLE: No path validation allows directory traversal
+  const uploadPath = path.join(__dirname, 'uploads', filename);
+  
+  try {
+    // VULNERABLE: Writing to user-controlled path
+    fs.writeFileSync(uploadPath, content);
+    
+    res.json({
+      message: 'File uploaded successfully',
+      path: uploadPath,
+      filename: filename
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'File upload failed', 
+      details: error.message,
+      path: uploadPath // VULNERABLE: Exposing full path
     });
   }
 });

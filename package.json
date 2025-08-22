@@ -23,7 +23,8 @@
     "express-rate-limit": "^7.1.5",
     "express-validator": "^7.0.1",
     "ldapjs": "^3.0.7",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "handlebars": "^4.7.8"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",

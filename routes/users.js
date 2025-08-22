@@ -257,4 +257,85 @@ router.get('/search/:query', authenticateToken, async (req, res) => {
   }
 });
 
+// VULNERABILITY 20: NoSQL Injection via user filters
+router.post('/filter', authenticateToken, async (req, res) => {
+  try {
+    const { filters } = req.body;
+    
+    if (!filters || typeof filters !== 'object') {
+      return res.status(400).json({ error: 'Filters object is required' });
+    }
+    
+    // VULNERABLE: Direct use of user input in database query
+    const users = await db.User.findAll({
+      where: filters, // VULNERABLE: No validation of filter structure
+      attributes: ['id', 'username', 'email', 'role', 'isActive']
+    });
+    
+    res.json({
+      users: users,
+      filters: filters // VULNERABLE: Echoing back potentially malicious filters
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: error.message,
+      stack: error.stack, // VULNERABLE: Exposing stack trace
+      query: error.sql // VULNERABLE: Exposing SQL query
+    });
+  }
+});
+
+// VULNERABILITY 21: Mass Assignment vulnerability
+router.patch('/bulk-update', authenticateToken, async (req, res) => {
+  try {
+    const { updates } = req.body;
+    
+    if (!Array.isArray(updates)) {
+      return res.status(400).json({ error: 'Updates must be an array' });
+    }
+    
+    const results = [];
+    
+    for (const update of updates) {
+      const { id, ...userData } = update;
+      
+      // VULNERABLE: No validation of which fields can be updated
+      const user = await db.User.findByPk(id);
+      if (user) {
+        // VULNERABLE: Mass assignment allows updating any field
+        await user.update(userData); // Allows updating role, password, etc.
+        results.push(user);
+      }
+    }
+    
+    res.json({
+      message: 'Bulk update completed',
+      updatedUsers: results
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// VULNERABILITY 22: Insecure Direct Object Reference
+router.get('/profile/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // VULNERABLE: No authentication or authorization check
+    const user = await db.User.findByPk(userId, {
+      attributes: ['id', 'username', 'email', 'role', 'personalInfo', 'password'] // VULNERABLE: Exposing password hash
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // VULNERABLE: Returning sensitive data without authorization
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
