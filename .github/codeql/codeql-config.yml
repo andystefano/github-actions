@@ -7,6 +7,8 @@ queries:
   # - Variables de entorno hardcodeadas
   # - Secretos en código
   - uses: security-and-quality
+  # Incluir consultas personalizadas
+  - queries/custom-queries.qls
 
 # Configuración de paths para incluir/excluir
 paths:
@@ -15,7 +17,9 @@ paths:
   - "**/*.json"
   - "**/*.yml"
   - "**/*.yaml"
-  # Los archivos .env serán detectados por las consultas de seguridad estándar
+  - "**/.env*"
+  - "**/env.*"
+  # Los archivos .env serán detectados por las consultas personalizadas
   # que buscan patrones de variables de entorno y secretos
 
 paths-ignore:
