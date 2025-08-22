@@ -7,6 +7,8 @@ const { exec } = require('child_process');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const ldap = require('ldapjs');
+const xml2js = require('xml2js');
 
 // Import database models and routes
 const db = require('./models');
@@ -90,6 +92,90 @@ app.post('/decrypt', (req, res) => {
   decrypted += decipher.final('utf8');
   
   res.json({ decrypted });
+});
+
+// VULNERABILITY 10: LDAP Injection vulnerability
+app.post('/ldap-search', (req, res) => {
+  const { username } = req.body;
+  
+  if (!username) {
+    return res.status(400).json({ error: 'Username is required' });
+  }
+  
+  // VULNERABLE: LDAP injection - user input directly concatenated into LDAP filter
+  const ldapFilter = `(uid=${username})`;
+  
+  const client = ldap.createClient({
+    url: 'ldap://localhost:389'
+  });
+  
+  const searchOptions = {
+    filter: ldapFilter, // VULNERABLE: No input sanitization
+    scope: 'sub',
+    attributes: ['uid', 'cn', 'mail', 'departmentNumber']
+  };
+  
+  client.search('ou=users,dc=example,dc=com', searchOptions, (err, ldapRes) => {
+    if (err) {
+      return res.status(500).json({ error: 'LDAP search failed', details: err.message });
+    }
+    
+    const results = [];
+    
+    ldapRes.on('searchEntry', (entry) => {
+      results.push(entry.object);
+    });
+    
+    ldapRes.on('error', (err) => {
+      res.status(500).json({ error: 'LDAP search error', details: err.message });
+    });
+    
+    ldapRes.on('end', () => {
+      client.unbind();
+      res.json({ users: results });
+    });
+  });
+});
+
+// VULNERABILITY 11: XML External Entity (XXE) vulnerability
+app.post('/xml-import', (req, res) => {
+  const { xmlData } = req.body;
+  
+  if (!xmlData) {
+    return res.status(400).json({ error: 'XML data is required' });
+  }
+  
+  // VULNERABLE: XML parser with external entities enabled
+  const parser = new xml2js.Parser({
+    // VULNERABLE: Default settings allow external entities
+    // Should disable with: explicitCharkey: false, mergeAttrs: false, explicitArray: false
+  });
+  
+  try {
+    parser.parseString(xmlData, (err, result) => {
+      if (err) {
+        return res.status(400).json({ 
+          error: 'XML parsing failed', 
+          details: err.message,
+          stack: err.stack // VULNERABLE: Exposing stack trace
+        });
+      }
+      
+      // VULNERABLE: Processing XML without validation
+      res.json({ 
+        message: 'XML processed successfully',
+        data: result,
+        // VULNERABLE: Echoing back potentially malicious content
+        original: xmlData
+      });
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'XML processing error',
+      details: error.message,
+      stack: error.stack // VULNERABLE: Exposing stack trace
+    });
+  }
 });
 
 // VULNERABILITY 8: JWT secret hardcoded

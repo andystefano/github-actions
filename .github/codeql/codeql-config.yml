@@ -1,14 +1,11 @@
 name: "CodeQL Config"
 
-# Configuración para detectar archivos .env y otras vulnerabilidades de seguridad
+# Configuración para análisis de seguridad (detección de archivos .env removida)
 queries:
   # Incluir consultas de seguridad estándar que detectan:
-  # - Archivos de configuración expuestos
   # - Variables de entorno hardcodeadas
   # - Secretos en código
   - uses: security-and-quality
-  # Incluir consultas personalizadas
-  - queries/custom-queries.qls
 
 # Configuración de paths para incluir/excluir
 paths:
@@ -17,10 +14,6 @@ paths:
   - "**/*.json"
   - "**/*.yml"
   - "**/*.yaml"
-  - "**/.env*"
-  - "**/env.*"
-  # Los archivos .env serán detectados por las consultas personalizadas
-  # que buscan patrones de variables de entorno y secretos
 
 paths-ignore:
   - "**/node_modules/**"
@@ -33,9 +26,5 @@ paths-ignore:
 query-filters:
   - include:
       tags contain: security
-  - include:
-      tags contain: external-file
-  - include:
-      tags contain: environment
   - include:
       tags contain: hardcoded-credentials

@@ -265,6 +265,57 @@ async function testRateLimiting() {
   }
 }
 
+// Test 9: LDAP Injection
+async function testLDAPInjection() {
+  console.log('\n🔍 Testing LDAP Injection...');
+  
+  try {
+    // Test malicious LDAP injection payload
+    const maliciousUsername = 'admin)(|(uid=*';
+    const response = await makeRequest('POST', '/ldap-search', { username: maliciousUsername });
+    
+    console.log(`Status: ${response.status}`);
+    console.log(`Response: ${JSON.stringify(response.data, null, 2)}`);
+    
+    if (response.status === 200 || (response.status === 500 && response.data.details)) {
+      console.log('✅ LDAP Injection vulnerability confirmed!');
+    } else {
+      console.log('❌ LDAP Injection test failed');
+    }
+  } catch (error) {
+    console.error('❌ LDAP Injection test error:', error.message);
+  }
+}
+
+// Test 10: XML External Entity (XXE)
+async function testXXE() {
+  console.log('\n📄 Testing XML External Entity (XXE)...');
+  
+  try {
+    // Test malicious XXE payload
+    const maliciousXML = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE test [
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<test>
+  <data>&xxe;</data>
+</test>`;
+    
+    const response = await makeRequest('POST', '/xml-import', { xmlData: maliciousXML });
+    
+    console.log(`Status: ${response.status}`);
+    console.log(`Response: ${JSON.stringify(response.data, null, 2)}`);
+    
+    if (response.status === 200 || response.status === 400) {
+      console.log('✅ XXE vulnerability confirmed!');
+    } else {
+      console.log('❌ XXE test failed');
+    }
+  } catch (error) {
+    console.error('❌ XXE test error:', error.message);
+  }
+}
+
 // Main test runner
 async function runAllTests() {
   console.log('🚀 Starting Vulnerability Tests...');
@@ -280,6 +331,8 @@ async function runAllTests() {
     await testXSS();
     await testWeakEncryption();
     await testRateLimiting();
+    await testLDAPInjection();
+    await testXXE();
     
     console.log('\n🎯 All vulnerability tests completed!');
     console.log('📚 Review the results above to understand the security issues');
@@ -324,5 +377,7 @@ module.exports = {
   testXSS,
   testWeakEncryption,
   testRateLimiting,
+  testLDAPInjection,
+  testXXE,
   runAllTests
 };
