@@ -1,9 +1,46 @@
 # Gitleaks configuration for environment files and secrets detection
 title = "Custom Gitleaks Configuration"
 
-# Include default Gitleaks rules
-[extend]
-path = "https://raw.githubusercontent.com/gitleaks/gitleaks/master/config/gitleaks.toml"
+# Note: Using custom rules instead of extend due to URL access issues in CI/CD
+
+# Common secret detection rules
+[[rules]]
+id = "generic-api-key"
+description = "Generic API key"
+regex = '''(?i)(api[_-]?key|apikey)[\s]*=[\s]*['"]*([a-zA-Z0-9]{16,})['"]*'''
+secretGroup = 2
+keywords = ["api", "key"]
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key"
+regex = '''AKIA[0-9A-Z]{16}'''
+keywords = ["AKIA"]
+
+[[rules]]
+id = "github-token"
+description = "GitHub Token"
+regex = '''ghp_[0-9a-zA-Z]{36}'''
+keywords = ["ghp_"]
+
+[[rules]]
+id = "slack-token"
+description = "Slack Token"
+regex = '''xox[baprs]-([0-9a-zA-Z]{10,48})?'''
+keywords = ["xoxb", "xoxa", "xoxp", "xoxr", "xoxs"]
+
+[[rules]]
+id = "private-key"
+description = "Private Key"
+regex = '''-----BEGIN[ \w]*PRIVATE KEY-----'''
+keywords = ["PRIVATE KEY"]
+
+[[rules]]
+id = "generic-secret"
+description = "Generic Secret"
+regex = '''(?i)(secret|password|passwd|pwd)[\s]*=[\s]*['"]*([^'"\s]{8,})['"]*'''
+secretGroup = 2
+keywords = ["secret", "password", "passwd", "pwd"]
 
 # Custom rules for environment files
 [[rules]]
