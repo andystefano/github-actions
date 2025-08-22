@@ -4,9 +4,6 @@ name: "CodeQL Config"
 queries:
   # Incluir consultas de seguridad estándar
   - uses: security-and-quality
-  
-  # Consulta personalizada para detectar archivos .env
-  - uses: ./queries/env-file-detection.ql
 
 # Configuración de paths para incluir/excluir
 paths:
