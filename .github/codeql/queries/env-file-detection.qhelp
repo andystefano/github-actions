@@ -1,0 +1,48 @@
+---
+title: Environment File Detection
+description: |
+  This query detects environment files (.env, .env.local, .env.production, etc.) 
+  that may contain sensitive information such as API keys, passwords, and tokens.
+
+  ## Why is this a problem?
+  
+  Environment files often contain sensitive configuration data like:
+  - Database connection strings
+  - API keys and secrets
+  - Authentication tokens
+  - Passwords and credentials
+  
+  If these files are committed to version control, they can expose sensitive 
+  information to unauthorized users and potentially lead to security breaches.
+
+  ## How to fix this
+  
+  1. **Never commit .env files** to version control
+  2. **Use .env.example** files with placeholder values
+  3. **Add .env* to .gitignore**
+  4. **Use environment variables** in production
+  5. **Rotate any exposed secrets** immediately
+
+  ## Examples
+  
+  ```bash
+  # ❌ Don't commit these files
+  .env
+  .env.local
+  .env.production
+  
+  # ✅ Do commit these files
+  .env.example
+  .env.template
+  ```
+
+  ## Configuration
+  
+  You can customize this query by modifying the `containsSensitiveEnvVars` 
+  predicate to include additional patterns for your specific use case.
+
+  ## References
+  
+  - [GitHub Security Best Practices](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions)
+  - [OWASP Environment Variables](https://owasp.org/www-project-cheat-sheets/cheatsheets/Environment_Variables_Cheat_Sheet.html)
+  - [12 Factor App - Config](https://12factor.net/config)

@@ -136,6 +136,44 @@ This project is specifically designed to trigger CodeQL security alerts:
 - **Information Disclosure**: Error messages and logging vulnerabilities
 - **Authentication Bypass**: Weak JWT and session handling
 
+### Important Note About CodeQL
+
+**CodeQL analiza código; no revisa archivos por nombre directamente.**
+
+Para que archivos como `.env` aparezcan en Code Scanning, puedes crear una query personalizada que detecte archivos `.env` en la estructura de proyecto, usando la clase `File` de CodeQL.
+
+#### Ejemplo de Query Personalizada para Detectar Archivos .env
+
+```ql
+/**
+ * @name Environment Files Detected
+ * @description Detects .env files in the project structure
+ * @kind problem
+ * @id js/environment-files
+ * @problem.severity warning
+ * @precision medium
+ */
+
+import javascript
+import File
+
+from File f
+where f.getBaseName() = ".env"
+select f, "Environment file detected: " + f.getRelativePath()
+```
+
+#### Configuración en GitHub Actions
+
+Para incluir queries personalizadas en tu análisis de CodeQL, puedes modificar el workflow de GitHub Actions:
+
+```yaml
+- name: Perform CodeQL Analysis
+  uses: github/codeql-action/analyze@v2
+  with:
+    queries: security-extended,security-and-quality,./custom-queries
+    config-file: ./.github/codeql/codeql-config.yml
+```
+
 ## Testing Vulnerabilities
 
 ### SQL Injection Test
