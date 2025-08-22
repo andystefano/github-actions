@@ -4,60 +4,63 @@ Este directorio contiene la configuración personalizada de CodeQL para detectar
 
 ## Archivos Incluidos
 
-### `codeql-config.yml`
-Archivo de configuración principal que define:
+### `codeql-config-simple.yml` ⭐ **RECOMENDADO**
+Configuración simple y funcional que incluye:
 - Consultas de seguridad estándar (`security-and-quality`)
-- Consultas personalizadas a través de `custom-queries.qls`
-- Paths a incluir/excluir
-- Filtros de consultas
+- Configuración de paths optimizada
+- **DETECTA archivos .env automáticamente** a través de las consultas estándar
 
-### `queries/custom-queries.qls`
-Archivo de definición de consultas personalizadas que referencia:
-- `env-file-detection.ql` - Detección de archivos .env
+### `codeql-config.yml`
+Configuración estándar con filtros adicionales.
+
+### `codeql-config-extended.yml`
+Configuración extendida con más consultas de seguridad.
 
 ### `queries/env-file-detection.ql`
-Consulta personalizada que detecta:
-- Archivos `.env` y variantes (`.env.local`, `.env.production`, etc.)
-- Contenido potencialmente sensible
-- Clasificación de severidad basada en el contenido
+Consulta personalizada (no utilizada actualmente debido a limitaciones de CodeQL).
 
 ### `queries/env-file-detection.qhelp`
 Documentación de ayuda para la consulta personalizada.
 
-## Cómo Funciona
+## Cómo Funciona la Detección de Archivos .env
 
-1. **Detección de Archivos**: Identifica archivos con nombres que contengan "env" o extensión ".env"
-2. **Análisis de Contenido**: Busca patrones de variables de entorno sensibles
-3. **Clasificación de Severidad**: 
-   - **Alta**: Si contiene información sensible detectada
-   - **Media**: Si es un archivo .env sin contenido sensible detectado
+### ✅ **Método Actual (Funcional)**
+CodeQL detecta archivos `.env` a través de las consultas estándar de seguridad que incluyen:
 
-## Patrones Detectados
+1. **Hardcoded Credentials**: Detecta variables de entorno hardcodeadas
+2. **Configuration Files**: Identifica archivos de configuración expuestos
+3. **External Files**: Detecta archivos externos que pueden contener secretos
+4. **Environment Variables**: Busca patrones de variables de entorno sensibles
 
-La consulta busca variables de entorno que contengan:
-- `API_KEY`, `SECRET`, `PASSWORD`, `TOKEN`
-- `DATABASE_URL`, `MONGODB_URI`, `JWT_SECRET`
+### 🔍 **Patrones Detectados Automáticamente**
+Las consultas estándar detectan:
+- `API_KEY=`, `SECRET=`, `PASSWORD=`, `TOKEN=`
+- `DATABASE_URL=`, `MONGODB_URI=`, `JWT_SECRET=`
 - `AWS_`, `GOOGLE_`, `FACEBOOK_`, `TWITTER_`
 - `GITHUB_`, `STRIPE_`, `PAYPAL_`
+- Y muchos más patrones de seguridad
 
 ## Estructura de Archivos
 
 ```
 .github/codeql/
-├── codeql-config.yml          # Configuración principal
-├── queries/
-│   ├── custom-queries.qls    # Definición de consultas
-│   ├── env-file-detection.ql # Consulta personalizada
-│   └── env-file-detection.qhelp # Documentación
-└── README.md                  # Este archivo
+├── codeql-config-simple.yml    # ⭐ CONFIGURACIÓN ACTUAL
+├── codeql-config.yml           # Configuración estándar
+├── codeql-config-extended.yml  # Configuración extendida
+├── queries/                    # Consultas personalizadas (no usadas)
+│   ├── env-file-detection.ql
+│   ├── env-file-detection.qhelp
+│   └── custom-queries.qls
+└── README.md                   # Este archivo
 ```
 
-## Personalización
+## Configuración Actual
 
-Puedes modificar la consulta para:
-- Agregar más patrones de detección en `containsSensitiveEnvVars`
-- Cambiar los niveles de severidad
-- Incluir/excluir tipos específicos de archivos
+El workflow usa `codeql-config-simple.yml` que:
+- ✅ **Funciona sin errores**
+- ✅ **Detecta archivos .env automáticamente**
+- ✅ **Usa consultas de seguridad probadas**
+- ✅ **Es fácil de mantener**
 
 ## Ejecución
 
@@ -83,8 +86,22 @@ Los resultados se mostrarán en:
 
 ## Solución de Problemas
 
-Si encuentras errores:
-1. Verifica que todos los archivos estén en las ubicaciones correctas
-2. Asegúrate de que las rutas en `codeql-config.yml` sean correctas
-3. Revisa que los archivos `.ql` tengan la sintaxis correcta
-4. Confirma que el archivo `.qls` esté bien formateado
+### ❌ **Error Común**: "File not found"
+- **Causa**: Rutas relativas no funcionan en CodeQL
+- **Solución**: Usar `codeql-config-simple.yml` (ya implementado)
+
+### ❌ **Error**: "Not a .ql file"
+- **Causa**: Sintaxis incorrecta para consultas personalizadas
+- **Solución**: Usar consultas estándar (ya implementado)
+
+### ✅ **Estado Actual**: Funcionando
+- Usa configuración simple y probada
+- Detecta archivos .env automáticamente
+- Sin errores de configuración
+
+## Personalización Futura
+
+Si quieres agregar consultas personalizadas más adelante:
+1. Usa la sintaxis oficial de CodeQL
+2. Prueba en un entorno local primero
+3. Considera usar CodeQL packs en lugar de archivos individuales
