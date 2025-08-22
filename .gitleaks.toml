@@ -1,0 +1,78 @@
+# Gitleaks configuration for environment files and secrets detection
+title = "Custom Gitleaks Configuration"
+
+# Include default Gitleaks rules
+[extend]
+path = "https://raw.githubusercontent.com/gitleaks/gitleaks/master/config/gitleaks.toml"
+
+# Custom rules for environment files
+[[rules]]
+id = "env-file-detection"
+description = "Environment files (.env*) detected"
+regex = '''.*'''
+path = '''(?i)\.env.*'''
+secretGroup = 0
+keywords = []
+
+[[rules]]
+id = "config-files"
+description = "Configuration files that may contain secrets"
+regex = '''.*'''
+path = '''(?i)(config|configuration)\.(js|json|yaml|yml|toml|ini)$'''
+secretGroup = 0
+keywords = []
+
+[[rules]]
+id = "database-credentials"
+description = "Database credentials in any file"
+regex = '''(?i)(db_password|database_password|mysql_password|postgres_password|mongodb_password)[\s]*=[\s]*['"]*([^\s'"]+)['"]*'''
+secretGroup = 2
+keywords = ["password", "db_password", "database_password"]
+
+[[rules]]
+id = "jwt-secrets"
+description = "JWT secrets"
+regex = '''(?i)(jwt_secret|jwt_key|token_secret)[\s]*=[\s]*['"]*([^\s'"]+)['"]*'''
+secretGroup = 2
+keywords = ["jwt_secret", "jwt_key", "token_secret"]
+
+[[rules]]
+id = "encryption-keys"
+description = "Encryption keys"
+regex = '''(?i)(encryption_key|secret_key|private_key)[\s]*=[\s]*['"]*([^\s'"]+)['"]*'''
+secretGroup = 2
+keywords = ["encryption_key", "secret_key", "private_key"]
+
+[[rules]]
+id = "api-keys-generic"
+description = "Generic API keys"
+regex = '''(?i)(api_key|apikey|access_key|secret_access_key)[\s]*=[\s]*['"]*([^\s'"]+)['"]*'''
+secretGroup = 2
+keywords = ["api_key", "apikey", "access_key"]
+
+[[rules]]
+id = "session-secrets"
+description = "Session secrets"
+regex = '''(?i)(session_secret|session_key|cookie_secret)[\s]*=[\s]*['"]*([^\s'"]+)['"]*'''
+secretGroup = 2
+keywords = ["session_secret", "session_key", "cookie_secret"]
+
+# Path-based allowlist (files to ignore)
+[allowlist]
+description = "Allowlist certain files"
+files = [
+    '''\.git/''',
+    '''node_modules/''',
+    '''\.github/workflows/.*\.yml$''',
+    '''package(-lock)?\.json$''',
+    '''README\.md$''',
+]
+
+# Commit-based allowlist
+commits = []
+
+# Path allowlist for specific patterns
+paths = []
+
+# Regex allowlist for specific content
+regexes = []
