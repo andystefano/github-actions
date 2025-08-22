@@ -11,7 +11,6 @@
  */
 
 import javascript
-import DataFlow::PathGraph
 
 /**
  * Holds if `file` is an environment file (e.g., .env, .env.local, .env.production)
@@ -44,14 +43,6 @@ predicate containsSensitiveEnvVars(File file) {
       content.matches("%PAYPAL_%")
     )
   )
-}
-
-/**
- * Holds if `file` is a tracked environment file in version control
- */
-predicate isTrackedEnvFile(File file) {
-  isEnvFile(file) and
-  file.isTracked()
 }
 
 from File envFile

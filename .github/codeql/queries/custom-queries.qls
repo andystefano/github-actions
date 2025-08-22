@@ -1,0 +1,3 @@
+version: 2.0
+queries:
+  - uses: ./env-file-detection.ql

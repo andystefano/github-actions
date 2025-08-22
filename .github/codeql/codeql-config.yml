@@ -4,6 +4,9 @@ name: "CodeQL Config"
 queries:
   # Incluir consultas de seguridad estándar
   - uses: security-and-quality
+  
+  # Consultas personalizadas
+  - uses: ./queries/custom-queries.qls
 
 # Configuración de paths para incluir/excluir
 paths:
