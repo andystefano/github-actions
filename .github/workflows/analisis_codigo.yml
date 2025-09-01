@@ -1,4 +1,4 @@
-name: "CodeQL and Security Scan"
+name: "🔒 Análisis de Código"
 
 on:
   push:
